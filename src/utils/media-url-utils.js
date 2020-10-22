@@ -99,6 +99,8 @@ export function getAbsoluteHref(baseUrl, relativeUrl) {
 }
 
 export const getCustomGLTFParserURLResolver = gltfUrl => url => {
+  // when loading a basis-encoded model, this func is called on basis_transcoder.wasm
+  console.log(url); //
   if (typeof url !== "string" || url === "") return "";
   if (/^(https?:)?\/\//i.test(url)) return proxiedUrlFor(url);
   if (/^data:.*,.*$/i.test(url)) return url;
@@ -112,8 +114,17 @@ export const getCustomGLTFParserURLResolver = gltfUrl => url => {
       const originalUrl = decodeURIComponent(gltfUrl.substring(corsProxyPrefix.length));
       const originalUrlParts = originalUrl.split("/");
 
+      // Parado hack for running BASIS-encoded models locally
+      // This was being called on the basis_transcoder wasm and was being served from a /files folder
+      // as a gltf normally would be, but wasm and is served out of hubs/assets/wasm
+      if (url.includes("basis_transcoder")) {
+        url = corsProxyPrefix + `https://${originalUrlParts[2]}/hubs` + url;
+        return url;
+      }
+
       // Drop the .gltf filename
       const path = new URL(url).pathname;
+      // this line inserts an erroneous `/files/` into the url - fine for glb, bad for wasm
       const assetUrl = originalUrlParts.slice(0, originalUrlParts.length - 1).join("/") + "/" + path;
       return corsProxyPrefix + assetUrl;
     }
